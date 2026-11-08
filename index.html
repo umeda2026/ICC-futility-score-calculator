@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ICC Futility Score</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+/* Plan: clinical worksheet. Inputs on the left, a result panel that stays in view on the right; reference detail below. */
+:root{
+  --ink:#17242f; --muted:#56636f; --paper:#f4f7f8; --panel:#ffffff; --line:#d5dce1; --accent:#0e5d77;
+  --low:#2d7a58; --mid:#a86c12; --high:#b23c35; --chip:#e8eef1;
+  --display:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --body:"Source Sans 3", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#e4ebef; --muted:#a3b0ba; --paper:#10171c; --panel:#172129; --line:#2b3944; --accent:#62b4d0;
+    --low:#5cbf8e; --mid:#e0a64a; --high:#e8786e; --chip:#22303a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#e4ebef; --muted:#a3b0ba; --paper:#10171c; --panel:#172129; --line:#2b3944; --accent:#62b4d0;
+  --low:#5cbf8e; --mid:#e0a64a; --high:#e8786e; --chip:#22303a; color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 48px}
+header{display:flex;flex-direction:column;gap:6px;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:22px}
+h1{font-family:var(--display);font-size:2rem;line-height:1.15;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0;max-width:65ch}
+.badge{align-self:flex-start;font-size:.78rem;font-weight:600;letter-spacing:.02em;color:var(--high);border:1px solid currentColor;border-radius:4px;padding:1px 8px}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+h2{font-family:var(--display);font-size:1.25rem;margin:0 0 4px}
+.hint{color:var(--muted);font-size:.9rem;margin:0 0 14px}
+.example{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:var(--chip);border-radius:8px;padding:8px 12px;font-size:.9rem;margin-bottom:14px}
+.example[hidden]{display:none}
+.rows{display:flex;flex-direction:column;gap:0}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto 3.2rem;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:none}
+.row label,.row .lab{font-weight:600}
+.row .rule{display:block;font-weight:400;color:var(--muted);font-size:.85rem}
+.field{display:flex;align-items:center;gap:6px}
+input[type=number]{width:7.2rem;font:inherit;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 4px}
+.unit{color:var(--muted);font-size:.9rem;min-width:3.4rem}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{padding:6px 12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg input:checked + label{background:var(--accent);color:var(--panel)}
+.seg input:focus-visible + label{outline:2px solid var(--accent);outline-offset:-2px}
+.pt{justify-self:end;font-variant-numeric:tabular-nums;font-weight:700;border-radius:999px;padding:2px 10px;font-size:.9rem;background:var(--chip);color:var(--muted)}
+.pt.on{background:var(--accent);color:var(--panel)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-weight:600;border-radius:6px;padding:6px 12px;cursor:pointer;border:1px solid var(--accent);background:transparent;color:var(--accent)}
+button.primary{background:var(--accent);color:var(--panel)}
+.result{position:sticky;top:16px;display:flex;flex-direction:column;gap:14px}
+.scoreline{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.score{font-family:var(--display);font-size:3.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.score small{font-size:1.2rem;color:var(--muted)}
+.pill{font-weight:700;border-radius:999px;padding:3px 12px;color:var(--panel)}
+.pill.low{background:var(--low)} .pill.mid{background:var(--mid)} .pill.high{background:var(--high)} .pill.na{background:var(--muted)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.stat .k{color:var(--muted);font-size:.82rem}
+.stat .v{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .s{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums}
+.interp{margin:0;max-width:60ch}
+.status{color:var(--muted);font-size:.85rem;min-height:1.2em;margin:0}
+svg text{fill:var(--muted);font-family:var(--body)}
+.below{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px}
+@media (max-width:820px){.below{grid-template-columns:1fr}}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.93rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right}
+.note{color:var(--muted);font-size:.85rem;margin:10px 0 0}
+.disclaimer{margin-top:22px;border-left:4px solid var(--high);background:var(--panel);border-radius:0 8px 8px 0;padding:14px 16px;font-size:.92rem}
+.disclaimer p{margin:0 0 6px}
+footer{margin-top:18px;color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:6px 18px}
+a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="badge">Research use only · not externally validated</span>
+    <h1>ICC Futility Score</h1>
+    <p class="sub">Preoperative risk that hepatectomy for intrahepatic cholangiocarcinoma will be followed by recurrence or death within 6 months, from five routinely available items.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="in-h">
+      <h2 id="in-h">Preoperative findings</h2>
+      <p class="hint">Use the latest preoperative contrast-enhanced CT or MRI and laboratory values. Each item above its threshold scores 1 point.</p>
+      <div class="example" id="example"><span>Example values are shown. Replace them with your patient's data.</span><button type="button" id="clear">Clear all</button></div>
+      <form id="f" class="rows" novalidate>
+        <div class="row">
+          <label for="size">Largest tumor diameter<span class="rule">Preoperative imaging · point if &gt;3 cm</span></label>
+          <div class="field"><input id="size" type="number" inputmode="decimal" min="0" step="0.1" value="4.5"><span class="unit">cm</span></div>
+          <span class="pt" id="p-size">—</span>
+        </div>
+        <div class="row">
+          <span class="lab" id="num-l">Number of tumors<span class="rule">Preoperative imaging · point if multiple</span></span>
+          <div class="field"><div class="seg" role="radiogroup" aria-labelledby="num-l">
+            <input type="radio" name="num" id="num-1" value="0" checked><label for="num-1">Single</label>
+            <input type="radio" name="num" id="num-2" value="1"><label for="num-2">Multiple</label>
+          </div></div>
+          <span class="pt" id="p-num">—</span>
+        </div>
+        <div class="row">
+          <label for="ca">CA19-9<span class="rule">Point if ≥200 U/mL</span></label>
+          <div class="field"><input id="ca" type="number" inputmode="decimal" min="0" step="any" value="350"><span class="unit">U/mL</span></div>
+          <span class="pt" id="p-ca">—</span>
+        </div>
+        <div class="row">
+          <label for="cea">CEA<span class="rule">Point if &gt;5 ng/mL</span></label>
+          <div class="field"><input id="cea" type="number" inputmode="decimal" min="0" step="any" value="3.2"><span class="unit">ng/mL</span></div>
+          <span class="pt" id="p-cea">—</span>
+        </div>
+        <div class="row">
+          <label for="crp">C-reactive protein<span class="rule">mGPS ≥1 · point if &gt;1.0 mg/dL (10 mg/L)</span></label>
+          <div class="field"><input id="crp" type="number" inputmode="decimal" min="0" step="any" value="0.4">
+            <select id="crpu" aria-label="CRP unit"><option value="mgdl" selected>mg/dL</option><option value="mgl">mg/L</option></select></div>
+          <span class="pt" id="p-crp">—</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card result" aria-labelledby="out-h" aria-live="polite">
+      <h2 id="out-h">Result</h2>
+      <div class="scoreline"><span class="score" id="score">–<small> / 5</small></span><span class="pill na" id="group">Incomplete</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Predicted risk of futile resection</div><div class="v" id="pred">–</div><div class="s">Shrinkage-adjusted model estimate</div></div>
+        <div class="stat"><div class="k">Observed in the development cohort</div><div class="v" id="obs">–</div><div class="s" id="obsn">Same risk group</div></div>
+      </div>
+      <p class="interp" id="interp">Enter all five items to see the score.</p>
+      <svg id="chart" viewBox="0 0 360 150" role="img" aria-label="Predicted risk by score" width="100%"></svg>
+      <div class="btns"><button type="button" class="primary" id="copy">Copy result</button></div>
+      <p class="status" id="status"></p>
+    </section>
+  </div>
+
+  <div class="below">
+    <section class="card" aria-labelledby="ref-h">
+      <h2 id="ref-h">Risk by score</h2>
+      <table>
+        <thead><tr><th>Score</th><th>Risk group</th><th class="num">Patients</th><th class="num">Observed</th><th class="num">Predicted</th></tr></thead>
+        <tbody id="reftab"></tbody>
+      </table>
+      <p class="note">Observed: recurrence or death within 6 months after R0/R1 hepatectomy in the development cohort. Predicted: logistic model with the linear predictor multiplied by the bootstrap-corrected calibration slope (0.82).</p>
+    </section>
+    <section class="card" aria-labelledby="dev-h">
+      <h2 id="dev-h">Development and validation</h2>
+      <table>
+        <tbody>
+          <tr><th>Cohort</th><td>297 patients, 16 hospitals in western Japan, hepatectomy 2000–2016; 60 futile resections</td></tr>
+          <tr><th>Outcome</th><td>Recurrence or death from any cause ≤6 months after R0/R1 hepatectomy (surgery-related deaths excluded)</td></tr>
+          <tr><th>Discrimination</th><td>AUC 0.78 apparent; 0.74 after bootstrap optimism correction; 0.71 (95% CI 0.63–0.78) in internal–external cross-validation by region</td></tr>
+          <tr><th>Calibration</th><td>Bootstrap-corrected slope 0.82; Hosmer–Lemeshow P = 0.74</td></tr>
+          <tr><th>Status</th><td>External validation in an independent cohort is planned</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <div class="disclaimer" role="note">
+    <p><strong>For research and education only.</strong> This calculator has not been externally validated and is not a medical device. It must not be the sole basis for any treatment decision; interpret it together with imaging, multidisciplinary review and patient preference.</p>
+    <p>All calculation runs in your browser. Nothing you enter is sent or stored.</p>
+  </div>
+
+  <footer>
+    <span>Version 0.1 · 8 November 2026</span>
+    <span>Citation: manuscript in preparation</span>
+    <span>mGPS, modified Glasgow prognostic score</span>
+  </footer>
+</div>
+
+<script>
+// ---- model (frozen; from the development cohort) ----
+var MODEL = { a: -2.84094402640259, b: 0.8065384498851532 };          // shrinkage-adjusted logistic mapping
+var OBS = [[3,63],[7,97],[20,75],[18,44],[11,17],[1,1]];               // events / patients by score 0-5
+var GROUPS = { low:{label:"Low risk", range:"0–1", ev:10, n:160}, mid:{label:"Intermediate risk", range:"2", ev:20, n:75}, high:{label:"High risk", range:"3–5", ev:30, n:62} };
+
+function points(v){
+  // v: {size, multiple, ca199, cea, crp_mgdl}; returns per-item points (null when missing) and the total (null if incomplete)
+  var p = {
+    size: v.size == null ? null : (v.size > 3 ? 1 : 0),
+    num:  v.multiple == null ? null : (v.multiple ? 1 : 0),
+    ca:   v.ca199 == null ? null : (v.ca199 >= 200 ? 1 : 0),
+    cea:  v.cea == null ? null : (v.cea > 5 ? 1 : 0),
+    crp:  v.crp_mgdl == null ? null : (v.crp_mgdl > 1.0 ? 1 : 0)
+  };
+  var vals = [p.size,p.num,p.ca,p.cea,p.crp], total = null;
+  if (vals.every(function(x){return x !== null;})) total = vals.reduce(function(a,b){return a+b;},0);
+  return { p: p, total: total };
+}
+function risk(score){ return 1/(1+Math.exp(-(MODEL.a + MODEL.b*score))); }
+function groupOf(score){ return score <= 1 ? "low" : (score === 2 ? "mid" : "high"); }
+
+// ---- UI ----
+var $ = function(id){ return document.getElementById(id); };
+function num(id){ var s = $(id).value.trim(); if (s === "") return null; var x = Number(s); return (isFinite(x) && x >= 0) ? x : null; }
+function readInputs(){
+  var crp = num("crp"); if (crp !== null && $("crpu").value === "mgl") crp = crp/10;
+  var m = document.querySelector('input[name="num"]:checked');
+  return { size:num("size"), multiple: m ? m.value === "1" : null, ca199:num("ca"), cea:num("cea"), crp_mgdl:crp };
+}
+function pct(x){ return (100*x).toFixed(1) + "%"; }
+var lastText = "";
+function render(){
+  var v = readInputs(), r = points(v);
+  [["size","p-size"],["num","p-num"],["ca","p-ca"],["cea","p-cea"],["crp","p-crp"]].forEach(function(k){
+    var el = $(k[1]), x = r.p[k[0]];
+    el.textContent = x === null ? "—" : ("+" + x); el.className = "pt" + (x === 1 ? " on" : "");
+  });
+  var g = $("group");
+  if (r.total === null){
+    var done = Object.keys(r.p).filter(function(k){return r.p[k] !== null;}).length;
+    $("score").innerHTML = "–<small> / 5</small>"; g.textContent = "Incomplete"; g.className = "pill na";
+    $("pred").textContent = "–"; $("obs").textContent = "–"; $("obsn").textContent = "Same risk group";
+    $("interp").textContent = "Enter all five items to see the score (" + done + " of 5 entered).";
+    lastText = ""; drawChart(null); return;
+  }
+  var s = r.total, key = groupOf(s), G = GROUPS[key], pr = risk(s);
+  $("score").innerHTML = s + "<small> / 5</small>";
+  g.textContent = G.label + " (" + G.range + ")"; g.className = "pill " + key;
+  $("pred").textContent = pct(pr);
+  $("obs").textContent = pct(G.ev/G.n); $("obsn").textContent = G.ev + " of " + G.n + " patients with score " + G.range;
+  var txt = "In the development cohort, " + Math.round(100*G.ev/G.n) + "% of patients with a score of " + G.range + " had recurrence or death within 6 months of resection.";
+  if (key === "high") txt += " Additional staging or neoadjuvant therapy could be discussed at a multidisciplinary meeting.";
+  $("interp").textContent = txt;
+  lastText = "ICC Futility Score " + s + "/5 (" + G.label + "); predicted risk of futile resection " + pct(pr) +
+             "; items: tumor >3 cm " + r.p.size + ", multiple " + r.p.num + ", CA19-9 ≥200 " + r.p.ca + ", CEA >5 " + r.p.cea + ", CRP >1.0 mg/dL " + r.p.crp + ". Research use only.";
+  drawChart(s);
+}
+function drawChart(cur){
+  var svg = $("chart"), W = 360, H = 150, L = 34, B = 26, T = 18, bw = 40, gap = (W - L - 6*bw)/6;
+  var ns = "http://www.w3.org/2000/svg", css = getComputedStyle(document.documentElement);
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  function el(n, a, t){ var e = document.createElementNS(ns, n); for (var k in a) e.setAttribute(k, a[k]); if (t) e.textContent = t; svg.appendChild(e); return e; }
+  var y = function(p){ return T + (H - T - B)*(1 - p); };
+  [0, .5, 1].forEach(function(p){ el("line",{x1:L,x2:W,y1:y(p),y2:y(p),stroke:css.getPropertyValue("--line"),"stroke-width":1});
+                                  el("text",{x:L-6,y:y(p)+4,"text-anchor":"end","font-size":10}, (100*p)+"%"); });
+  for (var s = 0; s <= 5; s++){
+    var p = risk(s), x = L + gap/2 + s*(bw+gap), key = groupOf(s);
+    var fill = css.getPropertyValue(key === "low" ? "--low" : key === "mid" ? "--mid" : "--high");
+    el("rect",{x:x,y:y(p),width:bw,height:y(0)-y(p),rx:3,fill:fill,opacity:(cur === null || cur === s) ? 1 : 0.28});
+    el("text",{x:x+bw/2,y:y(p)-4,"text-anchor":"middle","font-size":10,"font-weight":cur === s ? 700 : 400}, Math.round(100*p)+"%");
+    el("text",{x:x+bw/2,y:H-8,"text-anchor":"middle","font-size":11,"font-weight":cur === s ? 700 : 400}, String(s));
+  }
+}
+function buildTable(){
+  var tb = $("reftab");
+  for (var s = 0; s <= 5; s++){
+    var o = OBS[s], key = groupOf(s), tr = document.createElement("tr");
+    [String(s), GROUPS[key].label, String(o[1]), o[0] + " (" + pct(o[0]/o[1]) + ")", pct(risk(s))].forEach(function(t,i){
+      var td = document.createElement("td"); td.textContent = t; if (i >= 2) td.className = "num"; tr.appendChild(td); });
+    tb.appendChild(tr);
+  }
+}
+document.addEventListener("input", function(e){ if (e.target.closest("#f")) { $("example").hidden = true; render(); } });
+document.addEventListener("change", function(e){ if (e.target.closest("#f")) { $("example").hidden = true; render(); } });
+$("f").addEventListener("submit", function(e){ e.preventDefault(); });
+$("clear").addEventListener("click", function(){
+  ["size","ca","cea","crp"].forEach(function(id){ $(id).value = ""; });
+  document.querySelectorAll('input[name="num"]').forEach(function(r){ r.checked = false; });
+  $("example").hidden = true; render(); $("size").focus();
+});
+$("copy").addEventListener("click", function(){
+  var st = $("status");
+  if (!lastText){ st.textContent = "Complete all five items first."; return; }
+  try {
+    navigator.clipboard.writeText(lastText).then(function(){ st.textContent = "Result copied."; },
+      function(){ st.textContent = "Copy was blocked by the browser. Select and copy the text: " + lastText; });
+  } catch(err){ st.textContent = "Copy is not available here. Text: " + lastText; }
+});
+if (window.matchMedia) { try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render); } catch(e){} }
+buildTable(); render();
+</script>
+</body>
+</html>
